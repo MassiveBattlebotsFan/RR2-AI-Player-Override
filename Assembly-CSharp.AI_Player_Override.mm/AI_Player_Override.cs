@@ -109,9 +109,21 @@ public class patch_AIMiniscriptHandler : AIMiniscriptHandler
     [MonoModIgnore]
     private patch_PlayerInputReader PIR;
     public bool hasBeenReset = false;
-    
+    private patch_Motor_Script[] motors;
+
     //public extern orig_Code_Editor_Value_Set;
-    
+
+    private extern void orig_Start();
+    private void Start()
+    {
+        orig_Start();
+        this.motors = GetComponentsInChildren<patch_Motor_Script>();
+        if(this.motors == null)
+        {
+            Debug.Log("Motors list null");
+        }
+    }
+
     public Interpreter getInterpreter()
     {
         return this.interpreter;
@@ -177,9 +189,54 @@ public class patch_AIMiniscriptHandler : AIMiniscriptHandler
             this.debugInputs.AddOrUpdate("pAna1", this.PIR.pInput.analog1);
             this.debugInputs.AddOrUpdate("pAna2", this.PIR.pInput.analog2);*/
         }
+        if(this.motors != null)
+        {
+            ValList motorList = new ValList();
+            for(var i = 0; i < this.motors.Length; ++i)
+            {
+                if (this.motors[i] == null) continue;
+                ValMap temp = new ValMap();
+                temp["temp"] = new ValNumber(this.motors[i].getCruelTemperature());
+                temp["delta"] = new ValNumber(this.motors[i].angleDelta);
+                temp["angle"] = new ValNumber(this.motors[i].currentHingeAngle);
+                temp["voltage"] = new ValNumber(this.motors[i].getCruelVoltage());
+                motorList.values.Add(temp);
+            }
+            this.interpreter.SetGlobalValue("motors", motorList);
+        }
         // print variable state
         this.printKeyValsFromInterpreter(this.interpreter.vm.globalContext.variables, "variables");
         //this.printKeyValsFromInterpreter((ValMap)this.interpreter., "Local vars");
+    }
+}
+
+public class patch_Motor_Script : Motor_Script
+{
+    public float getCruelTemperature()
+    {
+        float temp = 0;
+        if(this.submotors != null)
+        {
+            foreach(var i in this.submotors)
+            {
+                temp += i.currentDegreesCelsius;
+            }
+            temp /= this.submotors.Count;
+        }
+        return temp;
+    }
+    public float getCruelVoltage()
+    {
+        float temp = 0;
+        if (this.submotors != null)
+        {
+            foreach (var i in this.submotors)
+            {
+                temp += i.motorVoltage;
+            }
+            temp /= this.submotors.Count;
+        }
+        return temp;
     }
 }
 
